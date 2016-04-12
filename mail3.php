@@ -3,7 +3,7 @@
 	//edit here
 	$senderName = 'WEB';
 	$senderEmail = 'site@example.com';
-	$targetEmail = 'anna.boyko@w3.co';
+	$targetEmail = 'target@example.com';
 	$messageSubject = 'Message from web-site';
 	$redirectToReferer = true;
 	$redirectURL = 'thankyou.html';
