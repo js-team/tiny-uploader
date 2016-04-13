@@ -5,8 +5,19 @@ jQuery(function(){
 
 function initUploadImage() {
 	jQuery('.image-uploader-form').imageUploader({
-		insertBefore: '.thumb.file'
-		//thumbType: 'canvas'
+		insertBefore: '.thumb.file',
+		onSubmit: function() {
+			this.progress = jQuery('<div class="progress"><span></span></div>');
+			this.bar = this.progress.children();
+			this.progress.prependTo(this.form);
+		},
+		onSendProgress: function(percent) {
+			this.bar.text(percent + '%');
+			this.bar.css('width', percent + '%');
+		},
+		onSuccess: function() {
+			//this.progress.remove();
+		}
 	});
 }
 
@@ -35,9 +46,12 @@ function initUploadImage() {
 				insertAfter: '',
 				insertBefore: '',
 			},
-			onProgress: function(percent) {},
+			onSendProgress: function(percent) {},
 			onSuccess: function(data) {},
-			onError: function(jqXHR) {}
+			onError: function(jqXHR) {},
+			onCreateThumb: function(thumb) {},
+			onRemoveThumb: function(thumb) {},
+			onClear: function(self) {}
 		}, options);
 
 		this.init();
@@ -90,7 +104,7 @@ function initUploadImage() {
 					if (files.length) {
 						obj.files = $.makeArray(files);
 						self.clearArea(obj);
-						self.showThumb(obj);
+						self.drawThumb(obj);
 					}
 				});
 
@@ -121,6 +135,8 @@ function initUploadImage() {
 			});
 		},
 		submitHandler: function() {
+			this.makeCallback('onSubmit', this);
+
 			// get form data
 			var data = {};
 			var serializeArray = this.form.serializeArray();
@@ -157,7 +173,7 @@ function initUploadImage() {
 							if (event.lengthComputable) {
 								percent = Math.ceil(position / total * 100);
 
-								self.makeCallback('onProgress', percent);
+								self.makeCallback('onSendProgress', percent);
 							}
 						}, false);
 					}
@@ -169,7 +185,7 @@ function initUploadImage() {
 				self.makeCallback('onError', jqXHR);
 			});
 		},
-		showThumb: function(obj) {
+		drawThumb: function(obj) {
 			var self = this;
 			var imageType = /image.*/;
 
@@ -181,6 +197,7 @@ function initUploadImage() {
 				var image = new Image();
 				var dfd = $.Deferred();
 				var promise = dfd.promise();
+				var loadPromise = dfd.promise();
 
 				image.file = file;
 
@@ -212,6 +229,9 @@ function initUploadImage() {
 			for (var i = 0; i < currFiles.length; i++) {
 				if (obj.files[i] === currFile) {
 					obj.files.splice(i, 1);
+
+					this.makeCallback('onRemoveThumb', currThumb);
+
 					break;
 				}
 			}
@@ -223,7 +243,7 @@ function initUploadImage() {
 			this.createCanvasCrop(image, obj)
 				.done(function(canvas) {
 					var elem = canvas;
-					var newThumb = $(obj.opts.tpl).append($(elem));
+					var newThumb = $(obj.opts.tpl);
 					var btnRemove = newThumb.find(obj.opts.btnRemove);
 
 					newThumb.file = image.file;
@@ -241,6 +261,8 @@ function initUploadImage() {
 						image.src = base64resized;
 					}
 
+					newThumb.append($(elem));
+
 					if (!obj.thumbs) {
 						obj.thumbs = newThumb;
 					} else {
@@ -254,12 +276,15 @@ function initUploadImage() {
 					} else {
 						newThumb.appendTo(obj.tHolder);
 					}
+
+					self.makeCallback('onCreateThumb', newThumb);
 				});
 		},
 		clearArea: function(obj) {
 			if (obj.thumbs && obj.thumbs.length) {
 				obj.thumbs.remove();
 				obj.thumbs = $();
+				this.makeCallback('onClear', this);
 			}
 		},
 		createCanvasCrop: function(image, obj) {
