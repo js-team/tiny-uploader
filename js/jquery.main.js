@@ -4,7 +4,8 @@ jQuery(function(){
 });
 
 function initUploadImage() {
-	jQuery('.image-uploader').imageUploader({
+	jQuery('.image-uploader-form').imageUploader({
+		insertBefore: '.thumb.file'
 		//thumbType: 'canvas'
 	});
 }
@@ -12,17 +13,31 @@ function initUploadImage() {
 ;(function($, w, d) {
 	'use strict';
 
+	function getFiles(e) {
+		return 'files' in e.target ? e.target.files : 'dataTransfer' in e.originalEvent ? e.originalEvent.dataTransfer.files : [];
+	}
+
 	function ImageUploader(options) {
 		this.options = $.extend({
 			form: 'form',
-			dropArea: '.drop-area',
-			fileInput: 'input[type="file"]',
-			thumbnailHolder: '.thumbnails',
-			thumbType: 'image', // 'image', 'canvas',
-			cropSize: { // width / height (px)
-				w: 100,
-				h: 100
-			}
+			uploaderHolders: '.image-uploader',
+			uploaderOptions: {
+				dropArea: '.drop-area',
+				fileInput: 'input[type="file"]',
+				thumbsHolder: '.thumbnails',
+				thumbType: 'image', // 'image', 'canvas',
+				cropSize: { // width / height (px)
+					w: 100,
+					h: 100
+				},
+				tpl: '<div class="thumb"><button type="button" class="remove">x</button></div>',
+				btnRemove: 'button.remove',
+				insertAfter: '',
+				insertBefore: '',
+			},
+			onProgress: function(percent) {},
+			onSuccess: function(data) {},
+			onError: function(jqXHR) {}
 		}, options);
 
 		this.init();
@@ -37,51 +52,99 @@ function initUploadImage() {
 			}
 		},
 		findElements: function() {
+			var self = this;
+
+			this.options = $.extend(true, this.options, this.options.uploaderOptions);
 			this.form = $(this.options.form);
-			this.dropArea = this.form.find(this.options.dropArea);
-			this.fileInput = this.form.find(this.options.fileInput);
-			this.thumbnailHolder = this.form.find(this.options.thumbnailHolder);
+			this.uploaderHolders = this.form.find(this.options.uploaderHolders);
+			this.structure = [];
+
+			this.uploaderHolders.each(function() {
+				var uHolder = $(this);
+				var tHolder = uHolder.find(self.options.thumbsHolder);
+				var dropArea = uHolder.find(self.options.dropArea);
+				var fInput = uHolder.find(self.options.fileInput);
+				var opts = $.extend({}, true, self.options, uHolder.data('file') || {});
+
+				self.structure.push({
+					opts: opts,
+					uHolder: uHolder,
+					tHolder: tHolder,
+					dropArea: dropArea,
+					fInput: fInput
+				});
+			});
 		},
 		attachEvents: function() {
 			var self = this;
 
-			this.fileInput.on('change', function(e) {
-				e.preventDefault();
+			// event handlers
+			this.structure.forEach(function(obj, i) {
 
-				var files = 'files' in e.target ? e.target.files : 'dataTransfer' in e.originalEvent ? e.originalEvent.dataTransfer.files : [];
+				// change handler
+				obj.fInput.on('change', function(e) {
+					e.preventDefault();
 
-				if (files.length) {
-					self.showThumbnail(files);
+					var files = getFiles(e);
+
+					if (files.length) {
+						obj.files = $.makeArray(files);
+						self.clearArea(obj);
+						self.showThumb(obj);
+					}
+				});
+
+				if (obj.dropArea.length) {
+					// prevent drag and drop handler
+					obj.dropArea.on('dragenter dragover dragleave drop', function(e) {
+						e.stopPropagation();
+						e.preventDefault();
+					});
+
+					// drop handler
+					obj.dropArea.on('drop', function(e) {
+						e.preventDefault();
+
+						var files = getFiles(e);
+
+						if (files.length) {
+							obj.fInput.get(0).files = files;
+						}
+					});
 				}
 			});
 
-			this.dropArea.on('dragenter dragover dragleave drop', function(e) {
-				e.stopPropagation();
-				e.preventDefault();
-			});
-
-			this.dropArea.on('drop', function(e) {
-				var files = 'files' in e.target ? e.target.files : 'dataTransfer' in e.originalEvent ? e.originalEvent.dataTransfer.files : [];
-
-				if (files.length) {
-					self.showThumbnail(files);
-				}
-			});
-
+			// submit handler
 			this.form.on('submit', function(e) {
 				e.preventDefault();
 				self.submitHandler(e);
 			});
 		},
 		submitHandler: function() {
-			this.uploadHandler(this.form.attr('action'), this.fileInput[0].files);
+			// get form data
+			var data = {};
+			var serializeArray = this.form.serializeArray();
+
+			this.structure.forEach(function(obj, i) {
+				var fileEl = obj.fInput.get(0);
+
+				data[fileEl.name] = obj.files;
+			});
+
+			serializeArray.forEach(function(obj, i) {
+				data[obj.name] = obj.value;
+			});
+			this.uploadHandler(this.form.attr('action'), data);
 		},
-		uploadHandler: function(url, files) {
-			$.ajaxFormData(url, {
-				data: {
-					'name': 'images',
-					'ufiles[]': files
-				},
+		uploadHandler: function(url, data) {
+			// abort previous request if not completed
+			if(this.acXHR && typeof this.acXHR.abort === 'function') this.acXHR.abort();
+
+			var self = this;
+
+			// start new request
+			this.acXHR = $.ajaxFormData(url, {
+				data: data,
 				xhr: function() {
 					var xhr = $.ajaxSettings.xhr();
 
@@ -89,79 +152,124 @@ function initUploadImage() {
 
 						xhr.upload.addEventListener('progress', function(event) {
 							var percent = 0;
-							var position = event.loaded || event.position; /*event.position is deprecated*/
+							var position = event.loaded || event.position; //event.position is deprecated
 							var total = event.total;
 							if (event.lengthComputable) {
 								percent = Math.ceil(position / total * 100);
-								console.log(percent + '%')
+
+								self.makeCallback('onProgress', percent);
 							}
 						}, false);
 					}
 					return xhr;
 				}
 			}).done(function(data, textStatus, jqXHR) {
-				console.log(data);
+				self.makeCallback('onSuccess', data);
 			}).fail(function(jqXHR, textStatus, errorThrown) {
-				console.log(jqXHR.responseText);
+				self.makeCallback('onError', jqXHR);
 			});
 		},
-		showThumbnail: function(files) {
+		showThumb: function(obj) {
 			var self = this;
 			var imageType = /image.*/;
 
-			$.each(files, function(i, file) {
-				var imageType = /image.*/
-
+			$.each(obj.files, function(i, file) {
 				if (!file.type.match(imageType)) {
 					console.log("Not an Image");
 				}
 
 				var image = new Image();
+				var dfd = $.Deferred();
+				var promise = dfd.promise();
 
 				image.file = file;
 
-				var reader = new FileReader();
+				// Supports File or Blob objects
+				if (file instanceof File || file instanceof Blob) {
+					var reader = new FileReader();
 
-				reader.onload = (function(aImg) {
-					return function(e) {
-						aImg.src = e.target.result;
-					};
-				}(image));
+					reader.onload = (function(aImg) {
+						return function(e) {
+							aImg.src = e.target.result;
+							dfd.resolve();
+						};
+					}(image));
 
-				reader.readAsDataURL(file);
-
-				if (self.options.thumbType === 'canvas') {
-					self.addCanvasThumb(image);
-				} else if (self.options.thumbType === 'image') {
-					self.addImageThumb(image);
+					reader.readAsDataURL(file);
 				}
+
+				promise.done(function() {
+					self.addThumb(image, obj);
+				});
 			});
 		},
-		addImageThumb: function(image) {
+		romoveThumb: function(obj, currThumb, currFile) {
+			currThumb.remove();
+			obj.thumbs = obj.thumbs.not(currThumb);
+
+			var currFiles = obj.files;
+
+			for (var i = 0; i < currFiles.length; i++) {
+				if (obj.files[i] === currFile) {
+					obj.files.splice(i, 1);
+					break;
+				}
+			}
+		},
+		addThumb: function(image, obj) {
 			var self = this;
 			var imageFormat = image.file.type.split('/')[1];
 
-			this.createCanvasCrop(image).done(function(canvas) {
-				var base64resized = canvas.toDataURL('image/' + imageFormat); // 'type, encoderOptions' (image/png, between 0 and 1 indicating image quality if the requested type is image/jpeg or image/webp)
-				image.src = base64resized;
+			this.createCanvasCrop(image, obj)
+				.done(function(canvas) {
+					var elem = canvas;
+					var newThumb = $(obj.opts.tpl).append($(elem));
+					var btnRemove = newThumb.find(obj.opts.btnRemove);
 
-				$(image).appendTo(self.thumbnailHolder);
-			});
-		},
-		addCanvasThumb: function(image) {
-			var self = this;
+					newThumb.file = image.file;
 
-			this.createCanvasCrop(image).done(function(canvas) {
-				$(canvas).appendTo(self.thumbnailHolder);
-			});
+					if (btnRemove.length) {
+						btnRemove.on('click', function(e) {
+							e.preventDefault();
+							self.romoveThumb(obj, newThumb, newThumb.file);
+						});
+					}
+
+					if (obj.opts.thumbType === 'image') {
+						var base64resized = canvas.toDataURL('image/' + imageFormat); // 'type, encoderOptions' (image/png, between 0 and 1 indicating image quality if the requested type is image/jpeg or image/webp)
+						elem = image;
+						image.src = base64resized;
+					}
+
+					if (!obj.thumbs) {
+						obj.thumbs = newThumb;
+					} else {
+						obj.thumbs = obj.thumbs.add(newThumb);
+					}
+
+					if (obj.opts.insertBefore) {
+						newThumb.insertBefore(obj.opts.insertBefore);
+					} else if (obj.opts.insertAfter) {
+						newThumb.insertAfter(obj.opts.insertAfter);
+					} else {
+						newThumb.appendTo(obj.tHolder);
+					}
+				});
 		},
-		createCanvasCrop: function(image) {
-			var df = $.Deferred();
+		clearArea: function(obj) {
+			if (obj.thumbs && obj.thumbs.length) {
+				obj.thumbs.remove();
+				obj.thumbs = $();
+			}
+		},
+		createCanvasCrop: function(image, obj) {
+			var dfd = $.Deferred();
+			var promise = dfd.promise();
 			var canvas = d.createElement('canvas');
 			var ctx = canvas.getContext('2d');
 
-			canvas.height = this.options.cropSize.w;
-			canvas.width = this.options.cropSize.h;
+			canvas.height = obj.opts.cropSize.h;
+			canvas.width = obj.opts.cropSize.w;
 
 			image.onload = function() {
 				var dim = ImageStretcher.getDimensions(image, canvas);
@@ -183,10 +291,10 @@ function initUploadImage() {
 					destWidth, destHeight // With as width / height: destWidth * destHeight (scale)
 				);
 
-				df.resolve(canvas);
-			}
+				dfd.resolve(canvas);
+			};
 
-			return df;
+			return promise;
 		},
 		makeCallback: function(name) {
 			if (typeof this.options[name] === 'function') {
@@ -200,7 +308,7 @@ function initUploadImage() {
 	// jQuery plugin interface
 	$.fn.imageUploader = function(options) {
 		return this.each(function() {
-			var params = $.extend({}, options, {form: this}),
+			var params = $.extend({}, true, options, {form: this}),
 				instance = new ImageUploader(params);
 			$.data(this, 'ImageUploader', instance);
 		});
