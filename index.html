@@ -8,7 +8,7 @@
 <body>
 <div id="page">
 	<form class="image-uploader-form" action="image-send.php" method="post" enctype="multipart/form-data">
-		<h2>File uploader</h2>
+		<h2>Image uploader</h2>
 		<div class="image-uploader" data-file='{"cropSize": {"w": 150, "h": 100}}'>
 			<div class="upload-btn">
 				Upload Image
@@ -17,12 +17,25 @@
 			<div class="thumbnails drop-area">
 			</div>
 		</div>
-		<h2>File uploader</h2>
+		<h2>Image uploader</h2>
 		<div class="image-uploader" data-file='{"insertBefore": ".thumb.file"}'>
 			<div class="thumbnails">
 				<div class="thumb file">
 					<input name="ufiles[]" type="file" class="upload-image" multiple="multiple"></input>
 				</div>
+			</div>
+		</div>
+		<input type="submit" class="submit" value="send" />
+	</form>
+
+	<form class="file-uploader-form" action="image-send.php" method="post" enctype="multipart/form-data">
+		<h2>File uploader</h2>
+		<div class="image-uploader" data-file='{"cropSize": {"w": 150, "h": 100}, "imageValidator": false}'>
+			<div class="upload-btn">
+				Upload File
+				<input name="ufiles2[]" type="file" class="upload-image btn" multiple="multiple"></input>
+			</div>
+			<div class="thumbnails">
 			</div>
 		</div>
 		<input type="submit" class="submit" value="send" />

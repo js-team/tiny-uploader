@@ -662,6 +662,7 @@ input.upload-image.btn{
   text-transform: uppercase;
   background: #5468f9;
   overflow: hidden;
+  position: relative;
 }
 .progress{
   display: block;
@@ -682,4 +683,21 @@ input.upload-image.btn{
   color: #fff;
   font-size: 14px;
   line-height: 30px;
+}
+.uploaded-file{padding: 10px 0;}
+.uploaded-file:before{
+  content: attr(data-format);
+  display: inline-block;
+  vertical-align: middle;
+  border: 3px solid #00c7ff;
+  background: #fafafa;
+  text-transform: uppercase;
+  font-size: 12px;
+  line-height: 23px;
+  height: 30px;
+  width: 42px;
+  margin: 0 5px 0 0;
+  padding: 2px;
+  font-weight: bold;
+  text-align: center;
 }

@@ -9,10 +9,21 @@
 	$redirectURL = 'thankyou.html';
 	//****************************************
 
+	$uploaddir = $_SERVER['DOCUMENT_ROOT'].'/aboiko/image-uploader-es6/thumbnails/';
 	// mail content
 	$ufiles = $_FILES['ufiles'];
 	$uimages = $_FILES['uimages'];
 	$eee = $_POST['eee'];
+
+	foreach ($_FILES as $key => $one_file) {
+		foreach ($one_file['name'] as $key => $value) {
+			$uploadfile = $uploaddir.basename($value);
+			if (move_uploaded_file($one_file['tmp_name'][$key], $uploadfile)) {
+			} else {
+			    echo 'error';
+			}
+		}
+	}
 
 	// prepare message text
 	$messageText =	'Images!' .$eee."\n";

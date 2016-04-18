@@ -4,44 +4,41 @@ jQuery(function(){
 });
 
 function initUploadImage() {
-	jQuery('.image-uploader-form').imageUploader({
-		insertBefore: '.thumb.file',
-		onSubmit: function() {
-			this.progress = jQuery('<div class="progress"><span></span></div>');
-			this.bar = this.progress.children();
-			this.progress.prependTo(this.form);
+	let imageUploader = new ImageUploader({
+		form: jQuery('.image-uploader-form'),
+		onRemoveThumb (thumb) {
+			console.log(thumb)
 		},
-		onSendProgress: function(percent) {
-			this.bar.text(percent + '%');
-			this.bar.css('width', percent + '%');
-		},
-		onSuccess: function() {
-			//this.progress.remove();
+		onSuccess () {
+			console.log('success')
 		}
+	});
+
+	let fileUploader = new ImageUploader({
+		form: jQuery('.file-uploader-form')
 	});
 }
 
-;(function($, w, d) {
-	'use strict';
-
-	function getFiles(e) {
-		return 'files' in e.target ? e.target.files : 'dataTransfer' in e.originalEvent ? e.originalEvent.dataTransfer.files : [];
-	}
-
-	function ImageUploader(options) {
-		this.options = $.extend({
+// image uploader constructor
+class ImageUploader {
+	constructor(options) {
+		let defaults = {
 			form: 'form',
 			uploaderHolders: '.image-uploader',
 			uploaderOptions: {
 				dropArea: '.drop-area',
 				fileInput: 'input[type="file"]',
 				thumbsHolder: '.thumbnails',
-				thumbType: 'image', // 'image', 'canvas',
+				thumbType: 'canvas', // 'image', 'canvas',
 				cropSize: { // width / height (px)
 					w: 100,
 					h: 100
 				},
-				tpl: '<div class="thumb"><button type="button" class="remove">x</button></div>',
+				tpl: {
+					default: '<div class="uploaded-file"></div>',
+					image: '<div class="thumb"><button type="button" class="remove">x</button></div>',
+				},
+				imageValidator: true,
 				btnRemove: 'button.remove',
 				insertAfter: '',
 				insertBefore: '',
@@ -52,301 +49,356 @@ function initUploadImage() {
 			onCreateThumb: function(thumb) {},
 			onRemoveThumb: function(thumb) {},
 			onClear: function(self) {}
-		}, options);
+		};
+
+		let opts = Object.assign(defaults, options);
+		this.options = Object.assign(opts, opts.uploaderOptions);
 
 		this.init();
 	}
 
-	ImageUploader.prototype = {
-		init: function() {
-			if (this.options.form) {
-				this.findElements();
-				this.attachEvents();
-				this.makeCallback('onInit', this);
-			}
-		},
-		findElements: function() {
-			var self = this;
+	init () {
+		if (this.options.form) {
+			this.findElements();
+			this.attachEvents();
+			this.makeCallback('onInit', this);
+		}
+	}
 
-			this.options = $.extend(true, this.options, this.options.uploaderOptions);
-			this.form = $(this.options.form);
-			this.uploaderHolders = this.form.find(this.options.uploaderHolders);
-			this.structure = [];
+	findElements () {
+		let self = this;
+		this.form = $(this.options.form);
+		this.uploaderHolders = this.form.find(this.options.uploaderHolders);
+		this.structure = [];
 
-			this.uploaderHolders.each(function() {
-				var uHolder = $(this);
-				var tHolder = uHolder.find(self.options.thumbsHolder);
-				var dropArea = uHolder.find(self.options.dropArea);
-				var fInput = uHolder.find(self.options.fileInput);
-				var opts = $.extend({}, true, self.options, uHolder.data('file') || {});
+		this.uploaderHolders.each(function() {
+			let uHolder = $(this);
+			let tHolder = uHolder.find(self.options.thumbsHolder);
+			let dropArea = uHolder.find(self.options.dropArea);
+			let fInput = uHolder.find(self.options.fileInput);
+			let opts = Object.assign({}, self.options, uHolder.data('file') || {});
+			let files = [];
 
-				self.structure.push({
-					opts: opts,
-					uHolder: uHolder,
-					tHolder: tHolder,
-					dropArea: dropArea,
-					fInput: fInput
-				});
+			self.structure.push({
+				opts,
+				uHolder,
+				tHolder,
+				dropArea,
+				fInput,
+				files
 			});
-		},
-		attachEvents: function() {
-			var self = this;
+		});
+	}
 
-			// event handlers
-			this.structure.forEach(function(obj, i) {
+	attachEvents () {
+		// event handlers
+		for (let obj of this.structure) {
+			// change handler
+			obj.fInput.on('change', (e) => {
+				e.preventDefault();
 
-				// change handler
-				obj.fInput.on('change', function(e) {
+				let oldFiles = obj.files;
+				let newFiles = this.getFiles(e);
+
+				if (newFiles.length) {
+					let arr = Array.from(newFiles);
+
+					obj.newFiles = arr;
+
+					for (let file of arr) {
+						obj.files.push(file);
+					}
+
+					this.drawThumb(obj);
+				}
+			});
+
+			if (obj.dropArea.length) {
+				// prevent drag and drop handler
+				obj.dropArea.on('dragenter dragover dragleave drop', (e) => {
+					e.stopPropagation();
+					e.preventDefault();
+				});
+
+				// drop handler
+				obj.dropArea.on('drop', (e) => {
 					e.preventDefault();
 
-					var files = getFiles(e);
+					let files = this.getFiles(e);
 
 					if (files.length) {
-						obj.files = $.makeArray(files);
-						self.clearArea(obj);
-						self.drawThumb(obj);
+						obj.fInput.get(0).files = files;
 					}
 				});
+			}
+		}
 
-				if (obj.dropArea.length) {
-					// prevent drag and drop handler
-					obj.dropArea.on('dragenter dragover dragleave drop', function(e) {
-						e.stopPropagation();
-						e.preventDefault();
-					});
+		// submit handler
+		this.form.on('submit', (e) => {
+			e.preventDefault();
+			this.submitHandler(e);
+		});
+	}
 
-					// drop handler
-					obj.dropArea.on('drop', function(e) {
-						e.preventDefault();
+	// submit handler
+	submitHandler () {
+		this.makeCallback('onSubmit', this);
 
-						var files = getFiles(e);
+		// get form data
+		let data = {};
+		let serializeArray = this.form.serializeArray();
 
-						if (files.length) {
-							obj.fInput.get(0).files = files;
-						}
-					});
+		for (let obj of this.structure) {
+			let fileEl = obj.fInput.get(0);
+
+			data[fileEl.name] = obj.files;
+		}
+
+		for (let obj of serializeArray) {
+			data[obj.name] = obj.value;
+		}
+
+		this.uploadHandler(this.form.attr('action'), data);
+	}
+
+	// upload handler
+	uploadHandler(url, data) {
+		// abort previous request if not completed
+		if (this.acXHR && typeof this.acXHR.abort === 'function') this.acXHR.abort();
+
+		// start new request
+		this.acXHR = $.ajaxFormData(url, {
+			data: data,
+			xhr: () => this.progress()
+		})
+		.done((data, textStatus, jqXHR) => this.makeCallback('onSuccess', data))
+		.fail((jqXHR, textStatus, errorThrown) => this.makeCallback('onError', jqXHR));
+	}
+
+	// sending progress
+	progress () {
+		let xhr = $.ajaxSettings.xhr();
+
+		if (xhr.upload) {
+
+			xhr.upload.addEventListener('progress', (event) => {
+				let percent = 0;
+				let position = event.loaded || event.position; //event.position is deprecated
+				let total = event.total;
+				if (event.lengthComputable) {
+					percent = Math.ceil(position / total * 100);
+
+					this.makeCallback('onSendProgress', percent);
 				}
-			});
+			}, false);
+		}
+		return xhr;
+	}
 
-			// submit handler
-			this.form.on('submit', function(e) {
-				e.preventDefault();
-				self.submitHandler(e);
-			});
-		},
-		submitHandler: function() {
-			this.makeCallback('onSubmit', this);
+	// draw thumb
+	drawThumb (obj) {
+		let self = this;
+		let imageType = /image.*/;
 
-			// get form data
-			var data = {};
-			var serializeArray = this.form.serializeArray();
+		for (let file of obj.newFiles) {
+			let dfd = $.Deferred();
+			let fileLoad = dfd.promise();
 
-			this.structure.forEach(function(obj, i) {
-				var fileEl = obj.fInput.get(0);
+			// Supports File or Blob objects
+			if (file instanceof File || file instanceof Blob) {
 
-				data[fileEl.name] = obj.files;
-			});
+				let reader = new FileReader();
 
-			serializeArray.forEach(function(obj, i) {
-				data[obj.name] = obj.value;
-			});
-			this.uploadHandler(this.form.attr('action'), data);
-		},
-		uploadHandler: function(url, data) {
-			// abort previous request if not completed
-			if(this.acXHR && typeof this.acXHR.abort === 'function') this.acXHR.abort();
+				if (obj.opts.imageValidator && !file.type.match(imageType)) {
+					console.log(file.name + ' not an image');
 
-			var self = this;
-
-			// start new request
-			this.acXHR = $.ajaxFormData(url, {
-				data: data,
-				xhr: function() {
-					var xhr = $.ajaxSettings.xhr();
-
-					if (xhr.upload) {
-
-						xhr.upload.addEventListener('progress', function(event) {
-							var percent = 0;
-							var position = event.loaded || event.position; //event.position is deprecated
-							var total = event.total;
-							if (event.lengthComputable) {
-								percent = Math.ceil(position / total * 100);
-
-								self.makeCallback('onSendProgress', percent);
-							}
-						}, false);
-					}
-					return xhr;
-				}
-			}).done(function(data, textStatus, jqXHR) {
-				self.makeCallback('onSuccess', data);
-			}).fail(function(jqXHR, textStatus, errorThrown) {
-				self.makeCallback('onError', jqXHR);
-			});
-		},
-		drawThumb: function(obj) {
-			var self = this;
-			var imageType = /image.*/;
-
-			$.each(obj.files, function(i, file) {
-				if (!file.type.match(imageType)) {
-					console.log("Not an Image");
+					return false;
 				}
 
-				var image = new Image();
-				var dfd = $.Deferred();
-				var promise = dfd.promise();
-				var loadPromise = dfd.promise();
+				if (file.type.match(imageType)) { // image type
+					let image = new Image();
 
-				image.file = file;
+					image.file = file;
 
-				// Supports File or Blob objects
-				if (file instanceof File || file instanceof Blob) {
-					var reader = new FileReader();
-
-					reader.onload = (function(aImg) {
-						return function(e) {
+					reader.onload = (function (aImg){
+						return (e) => {
 							aImg.src = e.target.result;
 							dfd.resolve();
 						};
 					}(image));
 
-					reader.readAsDataURL(file);
+					fileLoad.done(() => this.addImageThumb(image, obj));
+				} else { // other types
+					file.file = file;
+
+					reader.onload = ((e) => dfd.resolve());
+
+					fileLoad.done(() => this.addFileThumb(file, obj));
 				}
 
-				promise.done(function() {
-					self.addThumb(image, obj);
-				});
-			});
-		},
-		romoveThumb: function(obj, currThumb, currFile) {
-			currThumb.remove();
-			obj.thumbs = obj.thumbs.not(currThumb);
-
-			var currFiles = obj.files;
-
-			for (var i = 0; i < currFiles.length; i++) {
-				if (obj.files[i] === currFile) {
-					obj.files.splice(i, 1);
-
-					this.makeCallback('onRemoveThumb', currThumb);
-
-					break;
-				}
-			}
-		},
-		addThumb: function(image, obj) {
-			var self = this;
-			var imageFormat = image.file.type.split('/')[1];
-
-			this.createCanvasCrop(image, obj)
-				.done(function(canvas) {
-					var elem = canvas;
-					var newThumb = $(obj.opts.tpl);
-					var btnRemove = newThumb.find(obj.opts.btnRemove);
-
-					newThumb.file = image.file;
-
-					if (btnRemove.length) {
-						btnRemove.on('click', function(e) {
-							e.preventDefault();
-							self.romoveThumb(obj, newThumb, newThumb.file);
-						});
-					}
-
-					if (obj.opts.thumbType === 'image') {
-						var base64resized = canvas.toDataURL('image/' + imageFormat); // 'type, encoderOptions' (image/png, between 0 and 1 indicating image quality if the requested type is image/jpeg or image/webp)
-						elem = image;
-						image.src = base64resized;
-					}
-
-					newThumb.append($(elem));
-
-					if (!obj.thumbs) {
-						obj.thumbs = newThumb;
-					} else {
-						obj.thumbs = obj.thumbs.add(newThumb);
-					}
-
-					if (obj.opts.insertBefore) {
-						newThumb.insertBefore(obj.opts.insertBefore);
-					} else if (obj.opts.insertAfter) {
-						newThumb.insertAfter(obj.opts.insertAfter);
-					} else {
-						newThumb.appendTo(obj.tHolder);
-					}
-
-					self.makeCallback('onCreateThumb', newThumb);
-				});
-		},
-		clearArea: function(obj) {
-			if (obj.thumbs && obj.thumbs.length) {
-				obj.thumbs.remove();
-				obj.thumbs = $();
-				this.makeCallback('onClear', this);
-			}
-		},
-		createCanvasCrop: function(image, obj) {
-			var dfd = $.Deferred();
-			var promise = dfd.promise();
-			var canvas = d.createElement('canvas');
-			var ctx = canvas.getContext('2d');
-
-			canvas.height = obj.opts.cropSize.h;
-			canvas.width = obj.opts.cropSize.w;
-
-			image.onload = function() {
-				var dim = ImageStretcher.getDimensions(image, canvas);
-				var sourceWidth = canvas.width * dim.koef;
-				var sourceHeight = canvas.height * dim.koef;
-
-				var destWidth = canvas.width;
-				var destHeight = canvas.height;
-				var sourceX = -1 * dim.left * dim.koef;
-				var sourceY = -1 * dim.top * dim.koef;
-				var destX = 0;
-				var destY = 0;
-
-				ctx.drawImage(
-					image,
-					sourceX, sourceY, // Start at sourceX/sourceY pixels from the left and the top of the image (crop),
-					sourceWidth, sourceHeight, // "Get" a `sourceWidth * sourceHeight` (w * h) area from the source image (crop),
-					destX, destY, // Place the result at destX, destY in the canvas,
-					destWidth, destHeight // With as width / height: destWidth * destHeight (scale)
-				);
-
-				dfd.resolve(canvas);
-			};
-
-			return promise;
-		},
-		makeCallback: function(name) {
-			if (typeof this.options[name] === 'function') {
-				var args = Array.prototype.slice.call(arguments);
-				args.shift();
-				this.options[name].apply(this, args);
+				// read file as data url
+				reader.readAsDataURL(file);
 			}
 		}
-	};
+	}
 
-	// jQuery plugin interface
-	$.fn.imageUploader = function(options) {
-		return this.each(function() {
-			var params = $.extend({}, true, options, {form: this}),
-				instance = new ImageUploader(params);
-			$.data(this, 'ImageUploader', instance);
-		});
-	};
+	// remove thumb
+	romoveThumb (obj, currThumb, currFile) {
+		currThumb.remove();
+		obj.thumbs = obj.thumbs.not(currThumb);
 
-	// export module
-	w.ImageUploader = ImageUploader;
-}(jQuery, window, document));
+		let currFiles = obj.files;
 
-var ImageStretcher = {
-	getDimensions: function(image, mask) {
+		for (let i = 0; i < currFiles.length; i++) {
+			if (Object.is(obj.files[i], currFile)) {
+				obj.files.splice(i, 1);
+
+				this.makeCallback('onRemoveThumb', currThumb);
+
+				break;
+			}
+		}
+	}
+
+	// attach remove thumb handler
+	removeHandler (btnRemove, obj, thumb) {
+		if (btnRemove.length) {
+			btnRemove.on('click', (e) => {
+				e.preventDefault();
+				this.romoveThumb(obj, thumb, thumb.file);
+			});
+		}
+	}
+
+	// append thumb to html
+	appendThumb (newThumb, obj) {
+		let btnRemove = newThumb.find(obj.opts.btnRemove);
+
+		this.removeHandler(btnRemove, obj, newThumb);
+
+		// add thumb to collection
+		if (!obj.thumbs) {
+			obj.thumbs = newThumb;
+		} else {
+			obj.thumbs = obj.thumbs.add(newThumb);
+		}
+
+		// append thumb
+		if (obj.opts.insertBefore) {
+			newThumb.insertBefore(obj.opts.insertBefore);
+		} else if (obj.opts.insertAfter) {
+			newThumb.insertAfter(obj.opts.insertAfter);
+		} else {
+			newThumb.appendTo(obj.tHolder);
+		}
+
+		this.makeCallback('onCreateThumb', newThumb);
+	}
+
+	// add file thumb
+	addFileThumb (file, obj) {
+		let format = fileExt(file.name)[0];
+		let newThumb = $(obj.opts.tpl[format] || obj.opts.tpl.default);
+
+		newThumb.file = file;
+		newThumb.addClass(format || '').attr('data-format', format);
+		newThumb.text(file.name || 'uploaded file');
+
+		this.appendThumb(newThumb, obj);
+	}
+
+	// add image thumb
+	addImageThumb (image, obj) {
+		let imageFormat = image.file.type.split('/')[1];
+
+		// create image
+		this.createCanvasCrop(image, obj)
+			.done((canvas) => {
+				let elem = canvas;
+				let newThumb = $(obj.opts.tpl.image);
+
+				newThumb.file = image.file;
+
+				if (Object.is(obj.opts.thumbType , 'image')) {
+					let base64resized = canvas.toDataURL('image/' + imageFormat); // 'type, encoderOptions' (image/png, between 0 and 1 indicating image quality if the requested type is image/jpeg or image/webp)
+					elem = image;
+					image.src = base64resized;
+				}
+
+				newThumb.append($(elem));
+
+				this.appendThumb(newThumb, obj);
+			});
+	}
+
+	// remove all thumbs
+	clearArea (obj) {
+		if (obj.thumbs && obj.thumbs.length) {
+			obj.thumbs.remove();
+			obj.thumbs = $();
+			obj.fInput.val('');
+			obj.files = [];
+			this.makeCallback('onClear', this);
+		}
+	}
+
+	// create canvas
+	createCanvasCrop (image, obj) {
+		let dfd = $.Deferred();
+		let promise = dfd.promise();
+		let canvas = document.createElement('canvas');
+		let ctx = canvas.getContext('2d');
+
+		canvas.height = obj.opts.cropSize.h;
+		canvas.width = obj.opts.cropSize.w;
+
+		image.onload = () => {
+			let dim = ImageStretcher.getDimensions(image, canvas);
+			let sourceWidth = canvas.width * dim.koef;
+			let sourceHeight = canvas.height * dim.koef;
+			let destWidth = canvas.width;
+			let destHeight = canvas.height;
+			let sourceX = -1 * dim.left * dim.koef;
+			let sourceY = -1 * dim.top * dim.koef;
+			let destX = 0;
+			let destY = 0;
+
+			ctx.drawImage(
+				image,
+				sourceX, sourceY, // Start at sourceX/sourceY pixels from the left and the top of the image (crop),
+				sourceWidth, sourceHeight, // "Get" a `sourceWidth * sourceHeight` (w * h) area from the source image (crop),
+				destX, destY, // Place the result at destX, destY in the canvas,
+				destWidth, destHeight // With as width / height: destWidth * destHeight (scale)
+			);
+
+			dfd.resolve(canvas);
+		};
+
+		return promise;
+	}
+
+	makeCallback (name) {
+		if (typeof this.options[name] === 'function') {
+			let args = Array.prototype.slice.call(arguments);
+			args.shift();
+			this.options[name].apply(this, args);
+		}
+	}
+
+	getFiles (e) {
+		return 'files' in e.target ? e.target.files : 'dataTransfer' in e.originalEvent ? e.originalEvent.dataTransfer.files : [];
+	}
+
+	fileExt (fileExt) {
+		return (/[.]/.exec(filename)) ? /[^.]+$/.exec(filename) : undefined;
+	}
+
+}
+
+let ImageStretcher = {
+	getDimensions (image, mask) {
 		// calculate element coords to fit in mask
-		var ratio = this.getRatio(image),
+		let ratio = this.getRatio(image),
 			slideWidth = mask.width,
 			slideHeight = slideWidth / ratio;
 
@@ -363,10 +415,10 @@ var ImageStretcher = {
 			left: (mask.width - slideWidth) / 2
 		};
 	},
-	getRatio: function(image) {
+	getRatio (image) {
 		return this.getRealDimensions(image).w / this.getRealDimensions(image).h;
 	},
-	getRealDimensions: function(image) {
+	getRealDimensions (image) {
 		if(jQuery(image).prop('naturalWidth')) {
 			return {
 				w: jQuery(image).prop('naturalWidth'),
@@ -411,13 +463,13 @@ var ImageStretcher = {
 
     "use strict";
 
-    var makeBoundary = function() {
+    let makeBoundary = function() {
         return '----JQBoundary'+btoa(Math.random().toString()).substr(0,12);
     };
 
-    var str2Uint8Array = function(str) {
-        var arr = [], c;
-        for(var i = 0; i < str.length; ++i) {
+    let str2Uint8Array = function(str) {
+        let arr = [], c;
+        for(let i = 0; i < str.length; ++i) {
             c = str.charCodeAt(i);
             if(c > 0xff) {
                 alert('Char code range out of 8 bit, parse error!');
@@ -433,11 +485,11 @@ var ImageStretcher = {
      * @param str:
      * @returns string:
      */
-    var utf8encode = window.TextEncoder ? function(str) {
-        var encoder = new TextEncoder('utf8');
-        var bytes = encoder.encode(str);
-        var result = '';
-        for(var i = 0; i < bytes.length; ++i) {
+    let utf8encode = window.TextEncoder ? function(str) {
+        let encoder = new TextEncoder('utf8');
+        let bytes = encoder.encode(str);
+        let result = '';
+        for(let i = 0; i < bytes.length; ++i) {
             result += String.fromCharCode(bytes[i]);
         }
         return result;
@@ -468,7 +520,7 @@ var ImageStretcher = {
         options.method = options.method || 'post';  // post method default
 
         // Create the final options object
-        var s = jQuery.ajaxSetup({}, options);
+        let s = jQuery.ajaxSetup({}, options);
 
         // Bypassing http safe methods.
         if(typeof(s.data) !== 'object' ||
@@ -476,10 +528,10 @@ var ImageStretcher = {
             return $.ajax(s);
         }
 
-        var data = s.data;
-        var boundary = makeBoundary();
-        var promises = [];
-        var postdata = '';
+        let data = s.data;
+        let boundary = makeBoundary();
+        let promises = [];
+        let postdata = '';
 
         /**
          * Serialize a single field, and export to formdata.
@@ -488,16 +540,16 @@ var ImageStretcher = {
          * @param val {string|number|boolean|File|Blob}: field content
          * @returns string: a boundary divided form-data part as a string.
          */
-        var appendField = function(name, val) {
+        let appendField = function(name, val) {
 
             // Supports File or Blob objects
             if(val instanceof File || val instanceof Blob) {
                 promises.push($.Deferred(function(dfd) {
-                    var reader = new FileReader();
+                    let reader = new FileReader();
                     reader.onload = function(e) {
-                        var bin_val = e.target.result;
-                        var filename = val.name && utf8encode(val.name) || 'blob';
-                        var content_type = val.type || 'application/octet-stream';
+                        let bin_val = e.target.result;
+                        let filename = val.name && utf8encode(val.name) || 'blob';
+                        let content_type = val.type || 'application/octet-stream';
                         postdata += '--' + boundary+'\r\n' +
                             'Content-Disposition: form-data; '+
                             'name="' + name + '"; filename="' + filename + '"\r\n' +
@@ -511,9 +563,9 @@ var ImageStretcher = {
             // Supports normal base64 image types
             else if(/^data:image\/\w+;base64,/.test(val)) {
                 // data:image/????;base64,xxxxx
-                var pos = val.search(';base64,');
-                var content_type = val.substr(5, pos-5);
-                var bin_val = atob(val.substr(pos+8));
+                let pos = val.search(';base64,');
+                let content_type = val.substr(5, pos-5);
+                let bin_val = atob(val.substr(pos+8));
                 postdata += '--' + boundary+'\r\n' +
                     'Content-Disposition: form-data; '+
                     'name="' + name + '"; filename="blob"\r\n' +
