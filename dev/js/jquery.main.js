@@ -1,3 +1,5 @@
+'use strict';
+
 global.jQuery = require('jquery');
 let ImageStretcher = require('./image-stretcher.js');
 
@@ -28,412 +30,408 @@ function initUploadImage() {
 	});
 }
 
-;(function ($) {
-	'use strict';
+// image uploader constructor
+class ImageUploader {
+	constructor(options) {
+		let defaults = {
+			form: 'form',
+			uploaderHolders: '.image-uploader',
+			dropArea: '.drop-area',
+			fileInput: 'input[type="file"]',
+			thumbsHolder: '.thumbnails',
+			thumbType: 'canvas', // 'image', 'canvas',
+			cropSize: { // width / height (px)
+				w: 100,
+				h: 100
+			},
+			tpl: {
+				default: '<div class="uploaded-file"></div>',
+				image: '<div class="thumb"><button type="button" class="remove">x</button></div>',
+			},
+			validateFormats: '', // 'css|js'
+			validateTypes: '', // 'image.*'
+			btnRemove: 'button.remove',
+			insertAfter: '',
+			insertBefore: '',
+			onSendProgress: function(percent) {},
+			onSuccess: function(data) {},
+			onError: function(jqXHR) {},
+			onCreateThumb: function(thumb) {},
+			onRemoveThumb: function(thumb) {},
+			onClear: function(self) {}
+		};
 
-	// image uploader constructor
-	class ImageUploader {
-		constructor(options) {
-			let defaults = {
-				form: 'form',
-				uploaderHolders: '.image-uploader',
-				dropArea: '.drop-area',
-				fileInput: 'input[type="file"]',
-				thumbsHolder: '.thumbnails',
-				thumbType: 'canvas', // 'image', 'canvas',
-				cropSize: { // width / height (px)
-					w: 100,
-					h: 100
-				},
-				tpl: {
-					default: '<div class="uploaded-file"></div>',
-					image: '<div class="thumb"><button type="button" class="remove">x</button></div>',
-				},
-				validateFormats: '', // 'css|js'
-				validateTypes: '', // 'image.*'
-				btnRemove: 'button.remove',
-				insertAfter: '',
-				insertBefore: '',
-				onSendProgress: function(percent) {},
-				onSuccess: function(data) {},
-				onError: function(jqXHR) {},
-				onCreateThumb: function(thumb) {},
-				onRemoveThumb: function(thumb) {},
-				onClear: function(self) {}
-			};
+		this.options = Object.assign(defaults, options);
 
-			this.options = Object.assign(defaults, options);
+		this.init();
+	}
 
-			this.init();
+	init () {
+		if (this.options.form) {
+			this.findElements();
+			this.attachEvents();
+			this.makeCallback('onInit', this);
 		}
+	}
 
-		init () {
-			if (this.options.form) {
-				this.findElements();
-				this.attachEvents();
-				this.makeCallback('onInit', this);
-			}
-		}
+	findElements () {
+		let self = this;
+		this.form = jQuery(this.options.form);
+		this.uploaderHolders = this.form.find(this.options.uploaderHolders);
+		this.structure = [];
 
-		findElements () {
-			let self = this;
-			this.form = $(this.options.form);
-			this.uploaderHolders = this.form.find(this.options.uploaderHolders);
-			this.structure = [];
+		this.uploaderHolders.each(function() {
+			let uHolder = jQuery(this);
+			let tHolder = uHolder.find(self.options.thumbsHolder);
+			let dropArea = uHolder.find(self.options.dropArea);
+			let fInput = uHolder.find(self.options.fileInput);
+			let opts = Object.assign({}, self.options, uHolder.data('file') || {});
+			let files = [];
 
-			this.uploaderHolders.each(function() {
-				let uHolder = $(this);
-				let tHolder = uHolder.find(self.options.thumbsHolder);
-				let dropArea = uHolder.find(self.options.dropArea);
-				let fInput = uHolder.find(self.options.fileInput);
-				let opts = Object.assign({}, self.options, uHolder.data('file') || {});
-				let files = [];
-
-				self.structure.push({
-					opts,
-					uHolder,
-					tHolder,
-					dropArea,
-					fInput,
-					files
-				});
+			self.structure.push({
+				opts,
+				uHolder,
+				tHolder,
+				dropArea,
+				fInput,
+				files
 			});
-		}
+		});
+	}
 
-		attachEvents () {
-			// event handlers
-			for (let obj of this.structure) {
-				// change handler
-				obj.fInput.on('change', (e) => {
+	attachEvents () {
+		// event handlers
+		for (let obj of this.structure) {
+			// change handler
+			obj.fInput.on('change', (e) => {
+				e.preventDefault();
+
+				let oldFiles = obj.files;
+				let newFiles = this.getFiles(e);
+
+				if (newFiles.length) {
+					let arr = Array.from(newFiles);
+
+					obj.newFiles = arr;
+
+					for (let file of arr) {
+						obj.files.push(file);
+					}
+
+					this.drawThumb(obj);
+				}
+			});
+
+			if (obj.dropArea.length) {
+				// prevent drag and drop handler
+				obj.dropArea.on('dragenter dragover dragleave drop', (e) => {
+					e.stopPropagation();
+					e.preventDefault();
+				});
+
+				// drop handler
+				obj.dropArea.on('drop', (e) => {
 					e.preventDefault();
 
-					let oldFiles = obj.files;
-					let newFiles = this.getFiles(e);
+					let files = this.getFiles(e);
 
-					if (newFiles.length) {
-						let arr = Array.from(newFiles);
-
-						obj.newFiles = arr;
-
-						for (let file of arr) {
-							obj.files.push(file);
-						}
-
-						this.drawThumb(obj);
+					if (files.length) {
+						obj.fInput.get(0).files = files;
 					}
 				});
-
-				if (obj.dropArea.length) {
-					// prevent drag and drop handler
-					obj.dropArea.on('dragenter dragover dragleave drop', (e) => {
-						e.stopPropagation();
-						e.preventDefault();
-					});
-
-					// drop handler
-					obj.dropArea.on('drop', (e) => {
-						e.preventDefault();
-
-						let files = this.getFiles(e);
-
-						if (files.length) {
-							obj.fInput.get(0).files = files;
-						}
-					});
-				}
 			}
-
-			// submit handler
-			this.form.on('submit', (e) => {
-				e.preventDefault();
-				this.submitHandler(e);
-			});
 		}
 
 		// submit handler
-		submitHandler () {
-			this.makeCallback('onSubmit', this);
-
-			// get form data
-			let data = {};
-			let serializeArray = this.form.serializeArray();
-
-			for (let obj of this.structure) {
-				let fileEl = obj.fInput.get(0);
-
-				data[fileEl.name] = obj.files;
-			}
-
-			for (let obj of serializeArray) {
-				data[obj.name] = obj.value;
-			}
-
-			this.uploadHandler(this.form.attr('action'), data);
-		}
-
-		// upload handler
-		uploadHandler(url, data) {
-			// abort previous request if not completed
-			if (this.acXHR && typeof this.acXHR.abort === 'function') this.acXHR.abort();
-
-			// start new request
-			this.acXHR = $.ajaxFormData(url, {
-				data: data,
-				xhr: () => this.progress()
-			})
-			.done((data, textStatus, jqXHR) => this.makeCallback('onSuccess', data))
-			.fail((jqXHR, textStatus, errorThrown) => this.makeCallback('onError', jqXHR));
-		}
-
-		// sending progress
-		progress () {
-			let xhr = $.ajaxSettings.xhr();
-
-			if (xhr.upload) {
-
-				xhr.upload.on('progress', (event) => {
-					let percent = 0;
-					let position = event.loaded || event.position; //event.position is deprecated
-					let total = event.total;
-					if (event.lengthComputable) {
-						percent = Math.ceil(position / total * 100);
-
-						this.makeCallback('onSendProgress', percent);
-					}
-				}, false);
-			}
-			return xhr;
-		}
-
-		// draw thumb
-		drawThumb (obj) {
-			let self = this;
-
-			for (let file of obj.newFiles) {
-
-				// Supports File or Blob objects
-				if (file instanceof File || file instanceof Blob) {
-
-					let reader = new FileReader();
-
-					if (obj.opts.validateTypes) {
-						let type = file.type;
-						let success = this.validateTypes(type, obj.opts.validateTypes);
-
-						if (!success) {
-							console.log('error type');
-							return false;
-						}
-					}
-
-					if (obj.opts.validateFormats) {
-						let format = this.fileExt(file.name)[0]
-						let success = this.validateFormats(format, obj.opts.validateFormats);
-
-						if (!success) {
-							console.log('error format');
-							return false;
-						}
-					}
-
-					if (file.type.match(/image.*/)) { // image type
-						let image = new Image();
-
-						image.file = file;
-
-						let imgLoadPromise = new Promise( (resolve, reject) => {
-							reader.onload = (function (aImg){
-								return (e) => {
-									aImg.src = e.target.result;
-									resolve();
-								};
-							}(image));
-						});
-
-						imgLoadPromise.then(() => this.addImageThumb(image, obj));
-					} else { // other types
-						file.file = file;
-
-						let fileLoadPromise = new Promise( (resolve, reject) => {
-							reader.onload = ((e) => resolve());
-						});
-
-						fileLoadPromise.then(() => this.addFileThumb(file, obj));
-					}
-
-					// read file as data url
-					reader.readAsDataURL(file);
-				}
-			}
-		}
-
-		// validate formats
-		validateFormats (validFormat, formats) {
-			return validFormat.match(formats);
-		}
-
-		// validate types
-		validateTypes (validType, types) {
-			return validType.match(types);
-		}
-
-		// remove thumb
-		romoveThumb (obj, currThumb, currFile) {
-			currThumb.remove();
-			obj.thumbs = obj.thumbs.not(currThumb);
-
-			let currFiles = obj.files;
-
-			for (let i = 0; i < currFiles.length; i++) {
-				if (Object.is(obj.files[i], currFile)) {
-					obj.files.splice(i, 1);
-
-					this.makeCallback('onRemoveThumb', currThumb);
-
-					break;
-				}
-			}
-		}
-
-		// attach remove thumb handler
-		removeHandler (btnRemove, obj, thumb) {
-			if (btnRemove.length) {
-				btnRemove.on('click', (e) => {
-					e.preventDefault();
-					this.romoveThumb(obj, thumb, thumb.file);
-				});
-			}
-		}
-
-		// append thumb to html
-		appendThumb (newThumb, obj) {
-			let btnRemove = newThumb.find(obj.opts.btnRemove);
-
-			this.removeHandler(btnRemove, obj, newThumb);
-
-			// add thumb to collection
-			if (!obj.thumbs) {
-				obj.thumbs = newThumb;
-			} else {
-				obj.thumbs = obj.thumbs.add(newThumb);
-			}
-
-			// append thumb
-			if (obj.opts.insertBefore) {
-				newThumb.insertBefore(obj.opts.insertBefore);
-			} else if (obj.opts.insertAfter) {
-				newThumb.insertAfter(obj.opts.insertAfter);
-			} else {
-				newThumb.appendTo(obj.tHolder);
-			}
-
-			this.makeCallback('onCreateThumb', newThumb);
-		}
-
-		// add file thumb
-		addFileThumb (file, obj) {
-			let format = this.fileExt(file.name)[0];
-			let newThumb = $(obj.opts.tpl[format] || obj.opts.tpl.default);
-
-			newThumb.file = file;
-			newThumb.addClass(format || '').attr('data-format', format);
-			newThumb.text(file.name || 'uploaded file');
-
-			this.appendThumb(newThumb, obj);
-		}
-
-		// add image thumb
-		addImageThumb (image, obj) {
-			let imageFormat = image.file.type.split('/')[1];
-
-			// create image
-			this.createCanvasCrop(image, obj)
-				.then((canvas) => {
-					let elem = canvas;
-					let newThumb = $(obj.opts.tpl.image);
-
-					newThumb.file = image.file;
-
-					if (Object.is(obj.opts.thumbType , 'image')) {
-						let base64resized = canvas.toDataURL('image/' + imageFormat); // 'type, encoderOptions' (image/png, between 0 and 1 indicating image quality if the requested type is image/jpeg or image/webp)
-						elem = image;
-						image.src = base64resized;
-					}
-
-					newThumb.append($(elem));
-
-					this.appendThumb(newThumb, obj);
-				});
-		}
-
-		// remove all thumbs
-		clearArea (obj) {
-			if (obj.thumbs && obj.thumbs.length) {
-				obj.thumbs.remove();
-				obj.thumbs = $();
-				obj.fInput.val('');
-				obj.files = [];
-
-				this.makeCallback('onClear', this);
-			}
-		}
-
-		// create canvas
-		createCanvasCrop (image, obj) {
-			let canvas = document.createElement('canvas');
-			let ctx = canvas.getContext('2d');
-
-			canvas.height = obj.opts.cropSize.h;
-			canvas.width = obj.opts.cropSize.w;
-
-			let promise = new Promise((resolve, reject) => {
-				image.onload = () => {
-					let dim = ImageStretcher.getDimensions(image, canvas);
-					let sourceWidth = canvas.width * dim.koef;
-					let sourceHeight = canvas.height * dim.koef;
-					let destWidth = canvas.width;
-					let destHeight = canvas.height;
-					let sourceX = -1 * dim.left * dim.koef;
-					let sourceY = -1 * dim.top * dim.koef;
-					let destX = 0;
-					let destY = 0;
-
-					ctx.drawImage(
-						image,
-						sourceX, sourceY, // Start at sourceX/sourceY pixels from the left and the top of the image (crop),
-						sourceWidth, sourceHeight, // "Get" a `sourceWidth * sourceHeight` (w * h) area from the source image (crop),
-						destX, destY, // Place the result at destX, destY in the canvas,
-						destWidth, destHeight // With as width / height: destWidth * destHeight (scale)
-					);
-
-					resolve(canvas);
-				}
-			});
-
-			return promise;
-		}
-
-		// make callback
-		makeCallback (name, ...args) {
-			if (typeof this.options[name] === 'function') {
-				this.options[name].apply(this, ...args);
-			}
-		}
-
-		// get files
-		getFiles (e) {
-			return 'files' in e.target ? e.target.files : 'dataTransfer' in e.originalEvent ? e.originalEvent.dataTransfer.files : [];
-		}
-
-		// get file extension
-		fileExt (filename) {
-			return (/[.]/.exec(filename)) ? /[^.]+$/.exec(filename) : undefined;
-		}
-
+		this.form.on('submit', (e) => {
+			e.preventDefault();
+			this.submitHandler(e);
+		});
 	}
 
-	window.ImageUploader = ImageUploader;
-}(jQuery));
+	// submit handler
+	submitHandler () {
+		this.makeCallback('onSubmit', this);
+
+		// get form data
+		let data = {};
+		let serializeArray = this.form.serializeArray();
+
+		for (let obj of this.structure) {
+			let fileEl = obj.fInput.get(0);
+
+			data[fileEl.name] = obj.files;
+		}
+
+		for (let obj of serializeArray) {
+			data[obj.name] = obj.value;
+		}
+
+		this.uploadHandler(this.form.attr('action'), data);
+	}
+
+	// upload handler
+	uploadHandler(url, data) {
+		// abort previous request if not completed
+		if (this.acXHR && typeof this.acXHR.abort === 'function') this.acXHR.abort();
+
+		// start new request
+		this.acXHR = jQuery.ajaxFormData(url, {
+			data: data,
+			xhr: () => this.progress()
+		})
+		.done((data, textStatus, jqXHR) => this.makeCallback('onSuccess', data))
+		.fail((jqXHR, textStatus, errorThrown) => this.makeCallback('onError', jqXHR));
+	}
+
+	// sending progress
+	progress () {
+		let xhr = jQuery.ajaxSettings.xhr();
+
+		if (xhr.upload) {
+
+			xhr.upload.on('progress', (event) => {
+				let percent = 0;
+				let position = event.loaded || event.position; //event.position is deprecated
+				let total = event.total;
+				if (event.lengthComputable) {
+					percent = Math.ceil(position / total * 100);
+
+					this.makeCallback('onSendProgress', percent);
+				}
+			}, false);
+		}
+		return xhr;
+	}
+
+	// draw thumb
+	drawThumb (obj) {
+		let self = this;
+
+		for (let file of obj.newFiles) {
+
+			// Supports File or Blob objects
+			if (file instanceof File || file instanceof Blob) {
+
+				let reader = new FileReader();
+
+				if (obj.opts.validateTypes) {
+					let type = file.type;
+					let success = this.validateTypes(type, obj.opts.validateTypes);
+
+					if (!success) {
+						console.log('error type');
+						return false;
+					}
+				}
+
+				if (obj.opts.validateFormats) {
+					let format = this.fileExt(file.name)[0]
+					let success = this.validateFormats(format, obj.opts.validateFormats);
+
+					if (!success) {
+						console.log('error format');
+						return false;
+					}
+				}
+
+				if (file.type.match(/image.*/)) { // image type
+					let image = new Image();
+
+					image.file = file;
+
+					let imgLoadPromise = new Promise( (resolve, reject) => {
+						reader.onload = (function (aImg){
+							return (e) => {
+								aImg.src = e.target.result;
+								resolve();
+							};
+						}(image));
+					});
+
+					imgLoadPromise.then(() => this.addImageThumb(image, obj));
+				} else { // other types
+					file.file = file;
+
+					let fileLoadPromise = new Promise( (resolve, reject) => {
+						reader.onload = ((e) => resolve());
+					});
+
+					fileLoadPromise.then(() => this.addFileThumb(file, obj));
+				}
+
+				// read file as data url
+				reader.readAsDataURL(file);
+			}
+		}
+	}
+
+	// validate formats
+	validateFormats (validFormat, formats) {
+		return validFormat.match(formats);
+	}
+
+	// validate types
+	validateTypes (validType, types) {
+		return validType.match(types);
+	}
+
+	// remove thumb
+	romoveThumb (obj, currThumb, currFile) {
+		currThumb.remove();
+		obj.thumbs = obj.thumbs.not(currThumb);
+
+		let currFiles = obj.files;
+
+		for (let i = 0; i < currFiles.length; i++) {
+			if (Object.is(obj.files[i], currFile)) {
+				obj.files.splice(i, 1);
+
+				this.makeCallback('onRemoveThumb', currThumb);
+
+				break;
+			}
+		}
+	}
+
+	// attach remove thumb handler
+	removeHandler (btnRemove, obj, thumb) {
+		if (btnRemove.length) {
+			btnRemove.on('click', (e) => {
+				e.preventDefault();
+				this.romoveThumb(obj, thumb, thumb.file);
+			});
+		}
+	}
+
+	// append thumb to html
+	appendThumb (newThumb, obj) {
+		let btnRemove = newThumb.find(obj.opts.btnRemove);
+
+		this.removeHandler(btnRemove, obj, newThumb);
+
+		// add thumb to collection
+		if (!obj.thumbs) {
+			obj.thumbs = newThumb;
+		} else {
+			obj.thumbs = obj.thumbs.add(newThumb);
+		}
+
+		// append thumb
+		if (obj.opts.insertBefore) {
+			newThumb.insertBefore(obj.opts.insertBefore);
+		} else if (obj.opts.insertAfter) {
+			newThumb.insertAfter(obj.opts.insertAfter);
+		} else {
+			newThumb.appendTo(obj.tHolder);
+		}
+
+		this.makeCallback('onCreateThumb', newThumb);
+	}
+
+	// add file thumb
+	addFileThumb (file, obj) {
+		let format = this.fileExt(file.name)[0];
+		let newThumb = jQuery(obj.opts.tpl[format] || obj.opts.tpl.default);
+
+		newThumb.file = file;
+		newThumb.addClass(format || '').attr('data-format', format);
+		newThumb.text(file.name || 'uploaded file');
+
+		this.appendThumb(newThumb, obj);
+	}
+
+	// add image thumb
+	addImageThumb (image, obj) {
+		let imageFormat = image.file.type.split('/')[1];
+
+		// create image
+		this.createCanvasCrop(image, obj)
+			.then((canvas) => {
+				let elem = canvas;
+				let newThumb = jQuery(obj.opts.tpl.image);
+
+				newThumb.file = image.file;
+
+				if (Object.is(obj.opts.thumbType , 'image')) {
+					let base64resized = canvas.toDataURL('image/' + imageFormat); // 'type, encoderOptions' (image/png, between 0 and 1 indicating image quality if the requested type is image/jpeg or image/webp)
+					elem = image;
+					image.src = base64resized;
+				}
+
+				newThumb.append(jQuery(elem));
+
+				this.appendThumb(newThumb, obj);
+			});
+	}
+
+	// remove all thumbs
+	clearArea (obj) {
+		if (obj.thumbs && obj.thumbs.length) {
+			obj.thumbs.remove();
+			obj.thumbs = jQuery();
+			obj.fInput.val('');
+			obj.files = [];
+
+			this.makeCallback('onClear', this);
+		}
+	}
+
+	// create canvas
+	createCanvasCrop (image, obj) {
+		let canvas = document.createElement('canvas');
+		let ctx = canvas.getContext('2d');
+
+		canvas.height = obj.opts.cropSize.h;
+		canvas.width = obj.opts.cropSize.w;
+
+		let promise = new Promise((resolve, reject) => {
+			image.onload = () => {
+				let dim = ImageStretcher.getDimensions(image, canvas);
+				let sourceWidth = canvas.width * dim.koef;
+				let sourceHeight = canvas.height * dim.koef;
+				let destWidth = canvas.width;
+				let destHeight = canvas.height;
+				let sourceX = -1 * dim.left * dim.koef;
+				let sourceY = -1 * dim.top * dim.koef;
+				let destX = 0;
+				let destY = 0;
+
+				ctx.drawImage(
+					image,
+					sourceX, sourceY, // Start at sourceX/sourceY pixels from the left and the top of the image (crop),
+					sourceWidth, sourceHeight, // "Get" a `sourceWidth * sourceHeight` (w * h) area from the source image (crop),
+					destX, destY, // Place the result at destX, destY in the canvas,
+					destWidth, destHeight // With as width / height: destWidth * destHeight (scale)
+				);
+
+				resolve(canvas);
+			}
+		});
+
+		return promise;
+	}
+
+	// make callback
+	makeCallback (name, ...args) {
+		if (typeof this.options[name] === 'function') {
+			this.options[name].apply(this, ...args);
+		}
+	}
+
+	// get files
+	getFiles (e) {
+		return 'files' in e.target ? e.target.files : 'dataTransfer' in e.originalEvent ? e.originalEvent.dataTransfer.files : [];
+	}
+
+	// get file extension
+	fileExt (filename) {
+		return (/[.]/.exec(filename)) ? /[^.]+$/.exec(filename) : undefined;
+	}
+
+}
+
+window.ImageUploader = ImageUploader;
 
 /*!
  * jQuery FormData Plugin
