@@ -1,9 +1,11 @@
 var path = require('path');
+var pathConfig = require('./path.config.js');
+
 
 module.exports = {
-    entry: './dev/js/jquery.main.js',
+    entry: path.resolve(__dirname, pathConfig.entryJS + '/jquery.main.js'),
     output: {
-        path: './build/scripts/',
+        path: path.resolve(__dirname, pathConfig.outputJS + '/'),
         filename: 'main.js'
     },
     watch: false,
@@ -21,7 +23,7 @@ module.exports = {
     },
     resolve: {
         alias: {
-            jquery: path.resolve(__dirname, './dev/js/lib/jquery-1.12.2.js')
+            'jquery': path.resolve(__dirname, pathConfig.entryJS + '/lib/jquery-1.12.2.js')
         }
     }
 

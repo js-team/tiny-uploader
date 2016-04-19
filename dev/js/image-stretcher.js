@@ -1,6 +1,6 @@
 'use strict';
 
-export default {
+module.exports = {
 	getDimensions (image, mask) {
 		// calculate element coords to fit in mask
 		let ratio = this.getRatio(image),

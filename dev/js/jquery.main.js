@@ -1,5 +1,5 @@
 global.jQuery = require('jquery');
-import ImageStretcher from './image-stretcher.js';
+let ImageStretcher = require('./image-stretcher.js');
 
 // page init
 jQuery(function(){
@@ -7,18 +7,24 @@ jQuery(function(){
 });
 
 function initUploadImage() {
-	let imageUploader = new ImageUploader({
-		form: jQuery('.image-uploader-form'),
-		onRemoveThumb (thumb) {
-			console.log(thumb)
-		},
-		onSuccess () {
-			console.log('success')
-		}
+	jQuery('.image-uploader-form').each(function() {
+		new ImageUploader({
+			form: this,
+			validateTypes: 'image.*',
+			onRemoveThumb (thumb) {
+				console.log(thumb)
+			},
+			onSuccess () {
+				console.log('success')
+			}
+		});
 	});
 
-	let fileUploader = new ImageUploader({
-		form: jQuery('.file-uploader-form')
+	jQuery('.file-uploader-form').each(function() {
+		new ImageUploader({
+			form: this,
+			validateFormats: 'css|js'
+		});
 	});
 }
 
@@ -31,24 +37,23 @@ function initUploadImage() {
 			let defaults = {
 				form: 'form',
 				uploaderHolders: '.image-uploader',
-				uploaderOptions: {
-					dropArea: '.drop-area',
-					fileInput: 'input[type="file"]',
-					thumbsHolder: '.thumbnails',
-					thumbType: 'canvas', // 'image', 'canvas',
-					cropSize: { // width / height (px)
-						w: 100,
-						h: 100
-					},
-					tpl: {
-						default: '<div class="uploaded-file"></div>',
-						image: '<div class="thumb"><button type="button" class="remove">x</button></div>',
-					},
-					imageValidator: true,
-					btnRemove: 'button.remove',
-					insertAfter: '',
-					insertBefore: '',
+				dropArea: '.drop-area',
+				fileInput: 'input[type="file"]',
+				thumbsHolder: '.thumbnails',
+				thumbType: 'canvas', // 'image', 'canvas',
+				cropSize: { // width / height (px)
+					w: 100,
+					h: 100
 				},
+				tpl: {
+					default: '<div class="uploaded-file"></div>',
+					image: '<div class="thumb"><button type="button" class="remove">x</button></div>',
+				},
+				validateFormats: '', // 'css|js'
+				validateTypes: '', // 'image.*'
+				btnRemove: 'button.remove',
+				insertAfter: '',
+				insertBefore: '',
 				onSendProgress: function(percent) {},
 				onSuccess: function(data) {},
 				onError: function(jqXHR) {},
@@ -57,8 +62,7 @@ function initUploadImage() {
 				onClear: function(self) {}
 			};
 
-			let opts = Object.assign(defaults, options);
-			this.options = Object.assign(opts, opts.uploaderOptions);
+			this.options = Object.assign(defaults, options);
 
 			this.init();
 		}
@@ -187,7 +191,7 @@ function initUploadImage() {
 
 			if (xhr.upload) {
 
-				xhr.upload.addEventListener('progress', (event) => {
+				xhr.upload.on('progress', (event) => {
 					let percent = 0;
 					let position = event.loaded || event.position; //event.position is deprecated
 					let total = event.total;
@@ -204,48 +208,73 @@ function initUploadImage() {
 		// draw thumb
 		drawThumb (obj) {
 			let self = this;
-			let imageType = /image.*/;
 
 			for (let file of obj.newFiles) {
-				let dfd = $.Deferred();
-				let fileLoad = dfd.promise();
 
 				// Supports File or Blob objects
 				if (file instanceof File || file instanceof Blob) {
 
 					let reader = new FileReader();
 
-					if (obj.opts.imageValidator && !file.type.match(imageType)) {
-						console.log(file.name + ' not an image');
+					if (obj.opts.validateTypes) {
+						let type = file.type;
+						let success = this.validateTypes(type, obj.opts.validateTypes);
 
-						return false;
+						if (!success) {
+							console.log('error type');
+							return false;
+						}
 					}
 
-					if (file.type.match(imageType)) { // image type
+					if (obj.opts.validateFormats) {
+						let format = this.fileExt(file.name)[0]
+						let success = this.validateFormats(format, obj.opts.validateFormats);
+
+						if (!success) {
+							console.log('error format');
+							return false;
+						}
+					}
+
+					if (file.type.match(/image.*/)) { // image type
 						let image = new Image();
 
 						image.file = file;
 
-						reader.onload = (function (aImg){
-							return (e) => {
-								aImg.src = e.target.result;
-								dfd.resolve();
-							};
-						}(image));
+						let imgLoadPromise = new Promise( (resolve, reject) => {
+							reader.onload = (function (aImg){
+								return (e) => {
+									aImg.src = e.target.result;
+									resolve();
+								};
+							}(image));
+						});
 
-						fileLoad.done(() => this.addImageThumb(image, obj));
+						imgLoadPromise.then(() => this.addImageThumb(image, obj));
 					} else { // other types
 						file.file = file;
 
-						reader.onload = ((e) => dfd.resolve());
+						let fileLoadPromise = new Promise( (resolve, reject) => {
+							reader.onload = ((e) => resolve());
+						});
 
-						fileLoad.done(() => this.addFileThumb(file, obj));
+						fileLoadPromise.then(() => this.addFileThumb(file, obj));
 					}
 
 					// read file as data url
 					reader.readAsDataURL(file);
 				}
 			}
+		}
+
+		// validate formats
+		validateFormats (validFormat, formats) {
+			return validFormat.match(formats);
+		}
+
+		// validate types
+		validateTypes (validType, types) {
+			return validType.match(types);
 		}
 
 		// remove thumb
@@ -303,7 +332,7 @@ function initUploadImage() {
 
 		// add file thumb
 		addFileThumb (file, obj) {
-			let format = fileExt(file.name)[0];
+			let format = this.fileExt(file.name)[0];
 			let newThumb = $(obj.opts.tpl[format] || obj.opts.tpl.default);
 
 			newThumb.file = file;
@@ -319,7 +348,7 @@ function initUploadImage() {
 
 			// create image
 			this.createCanvasCrop(image, obj)
-				.done((canvas) => {
+				.then((canvas) => {
 					let elem = canvas;
 					let newThumb = $(obj.opts.tpl.image);
 
@@ -344,58 +373,60 @@ function initUploadImage() {
 				obj.thumbs = $();
 				obj.fInput.val('');
 				obj.files = [];
+
 				this.makeCallback('onClear', this);
 			}
 		}
 
 		// create canvas
 		createCanvasCrop (image, obj) {
-			let dfd = $.Deferred();
-			let promise = dfd.promise();
 			let canvas = document.createElement('canvas');
 			let ctx = canvas.getContext('2d');
 
 			canvas.height = obj.opts.cropSize.h;
 			canvas.width = obj.opts.cropSize.w;
 
-			image.onload = () => {
-				let dim = ImageStretcher.getDimensions(image, canvas);
-				let sourceWidth = canvas.width * dim.koef;
-				let sourceHeight = canvas.height * dim.koef;
-				let destWidth = canvas.width;
-				let destHeight = canvas.height;
-				let sourceX = -1 * dim.left * dim.koef;
-				let sourceY = -1 * dim.top * dim.koef;
-				let destX = 0;
-				let destY = 0;
+			let promise = new Promise((resolve, reject) => {
+				image.onload = () => {
+					let dim = ImageStretcher.getDimensions(image, canvas);
+					let sourceWidth = canvas.width * dim.koef;
+					let sourceHeight = canvas.height * dim.koef;
+					let destWidth = canvas.width;
+					let destHeight = canvas.height;
+					let sourceX = -1 * dim.left * dim.koef;
+					let sourceY = -1 * dim.top * dim.koef;
+					let destX = 0;
+					let destY = 0;
 
-				ctx.drawImage(
-					image,
-					sourceX, sourceY, // Start at sourceX/sourceY pixels from the left and the top of the image (crop),
-					sourceWidth, sourceHeight, // "Get" a `sourceWidth * sourceHeight` (w * h) area from the source image (crop),
-					destX, destY, // Place the result at destX, destY in the canvas,
-					destWidth, destHeight // With as width / height: destWidth * destHeight (scale)
-				);
+					ctx.drawImage(
+						image,
+						sourceX, sourceY, // Start at sourceX/sourceY pixels from the left and the top of the image (crop),
+						sourceWidth, sourceHeight, // "Get" a `sourceWidth * sourceHeight` (w * h) area from the source image (crop),
+						destX, destY, // Place the result at destX, destY in the canvas,
+						destWidth, destHeight // With as width / height: destWidth * destHeight (scale)
+					);
 
-				dfd.resolve(canvas);
-			};
+					resolve(canvas);
+				}
+			});
 
 			return promise;
 		}
 
-		makeCallback (name) {
+		// make callback
+		makeCallback (name, ...args) {
 			if (typeof this.options[name] === 'function') {
-				let args = Array.prototype.slice.call(arguments);
-				args.shift();
-				this.options[name].apply(this, args);
+				this.options[name].apply(this, ...args);
 			}
 		}
 
+		// get files
 		getFiles (e) {
 			return 'files' in e.target ? e.target.files : 'dataTransfer' in e.originalEvent ? e.originalEvent.dataTransfer.files : [];
 		}
 
-		fileExt (fileExt) {
+		// get file extension
+		fileExt (filename) {
 			return (/[.]/.exec(filename)) ? /[^.]+$/.exec(filename) : undefined;
 		}
 
@@ -403,7 +434,6 @@ function initUploadImage() {
 
 	window.ImageUploader = ImageUploader;
 }(jQuery));
-
 
 /*!
  * jQuery FormData Plugin
@@ -612,5 +642,3 @@ function initUploadImage() {
     };
 
 }));
-
-
