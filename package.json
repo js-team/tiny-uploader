@@ -9,5 +9,8 @@
     "gulp": "^3.9.0",
     "gulp-watch": "^4.3.5",
     "webpack": "^1.12.14"
+  },
+  "dependencies": {
+    "jquery-formdata": "^0.1.3"
   }
 }

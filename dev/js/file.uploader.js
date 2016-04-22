@@ -1,6 +1,7 @@
 'use strict';
 
 let ImageStretcher = require('./image-stretcher.js');
+import {} from 'jquery-formdata';
 
 // image uploader constructor
 class ImageUploader {
@@ -25,20 +26,16 @@ class ImageUploader {
 			btnRemove: 'button.remove',
 			insertAfter: '',
 			insertBefore: '',
-			onSendProgress: function(percent) {},
-			onSuccess: function(data) {},
-			onError: function(jqXHR) {},
-			onCreateThumb: function(thumb) {},
-			onRemoveThumb: function(thumb) {},
-			onClear: function(self) {}
+			onSendProgress(percent) {},
+			onSuccess(data) {},
+			onError(jqXHR) {},
+			onCreateThumb(thumb) {},
+			onRemoveThumb(thumb) {},
+			onClear() {}
 		};
 
 		this.options = Object.assign(defaults, options);
 
-		this.init();
-	}
-
-	init () {
 		if (this.options.form) {
 			this.findElements();
 			this.attachEvents();
@@ -52,15 +49,15 @@ class ImageUploader {
 		this.uploaderHolders = this.form.find(this.options.uploaderHolders);
 		this.structure = [];
 
-		this.uploaderHolders.each(function() {
-			let uHolder = jQuery(this);
-			let tHolder = uHolder.find(self.options.thumbsHolder);
-			let dropArea = uHolder.find(self.options.dropArea);
-			let fInput = uHolder.find(self.options.fileInput);
-			let opts = Object.assign({}, self.options, uHolder.data('file') || {});
+		this.uploaderHolders.each((i, item) => {
+			let uHolder = jQuery(item);
+			let tHolder = uHolder.find(this.options.thumbsHolder);
+			let dropArea = uHolder.find(this.options.dropArea);
+			let fInput = uHolder.find(this.options.fileInput);
+			let opts = Object.assign({}, this.options, uHolder.data('file') || {});
 			let files = [];
 
-			self.structure.push({
+			this.structure.push({
 				opts,
 				uHolder,
 				tHolder,
@@ -165,6 +162,7 @@ class ImageUploader {
 				let percent = 0;
 				let position = event.loaded || event.position; //event.position is deprecated
 				let total = event.total;
+
 				if (event.lengthComputable) {
 					percent = Math.ceil(position / total * 100);
 
@@ -224,7 +222,7 @@ class ImageUploader {
 				} else { // other types
 					file.file = file;
 
-					let fileLoadPromise = new Promise( (resolve, reject) => {
+					let fileLoadPromise = new Promise(resolve => {
 						reader.onload = ((e) => resolve());
 					});
 
@@ -356,7 +354,7 @@ class ImageUploader {
 		canvas.height = obj.opts.cropSize.h;
 		canvas.width = obj.opts.cropSize.w;
 
-		let promise = new Promise((resolve, reject) => {
+		return new Promise((resolve, reject) => {
 			image.onload = () => {
 				let dim = ImageStretcher.getDimensions(image, canvas);
 				let sourceWidth = canvas.width * dim.koef;
@@ -379,14 +377,12 @@ class ImageUploader {
 				resolve(canvas);
 			}
 		});
-
-		return promise;
 	}
 
 	// make callback
 	makeCallback (name, ...args) {
 		if (typeof this.options[name] === 'function') {
-			this.options[name].apply(this, ...args);
+			this.options[name].apply(this, args);
 		}
 	}
 

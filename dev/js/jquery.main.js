@@ -4,11 +4,7 @@ window.jQuery = require('jquery');
 let ImageUploader = require('./file.uploader.js').ImageUploader;
 
 // page init
-jQuery(function(){
-	initUploadImage();
-});
-
-function initUploadImage() {
+jQuery(function() {
 	jQuery('.image-uploader-form').each(function() {
 		new ImageUploader({
 			form: this,
@@ -31,4 +27,4 @@ function initUploadImage() {
 			validateFormats: 'css|js'
 		});
 	});
-}
+});
