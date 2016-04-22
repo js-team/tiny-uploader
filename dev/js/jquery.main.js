@@ -431,8 +431,6 @@ class ImageUploader {
 
 }
 
-window.ImageUploader = ImageUploader;
-
 /*!
  * jQuery FormData Plugin
  * version: 0.1

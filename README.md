@@ -1,5 +1,11 @@
 # image uploader
 
+### Install...
+
+```cli
+	npm i
+```
+
 ### About...
 
 ```cli
