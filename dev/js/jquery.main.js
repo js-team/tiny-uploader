@@ -1,16 +1,17 @@
 'use strict';
 
 window.jQuery = require('jquery');
-let ImageUploader = require('./file.uploader.js').ImageUploader;
+import FileUploade from 'file-uploader';
 
 // page init
 jQuery(function() {
 	jQuery('.image-uploader-form').each(function() {
-		new ImageUploader({
+		new FileUploade({
 			form: this,
-			validateTypes: 'image.*',
-			onRemoveThumb (thumb) {
-				console.log(thumb)
+			validateTypes: 'image/*',
+			validateFormats: 'png',
+			onValidateError: function(errorName, currFormat, validFormat) {
+				alert('"' + currFormat + '"' + ' is error ' + errorName + '! Must be ' + '"' + validFormat + '"');
 			},
 			onSuccess () {
 				console.log('success')
@@ -22,9 +23,12 @@ jQuery(function() {
 	});
 
 	jQuery('.file-uploader-form').each(function() {
-		new ImageUploader({
+		new FileUploade({
 			form: this,
-			validateFormats: 'css|js'
+			validateFormats: 'css,js',
+			onValidateError: function(errorName, currFormat, validFormat) {
+				alert('"' + currFormat + '"' + ' is error ' + errorName + '! Must be ' + '"' + validFormat + '"');
+			}
 		});
 	});
 });

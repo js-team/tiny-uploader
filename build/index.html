@@ -1,9 +1,10 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<!DOCTYPE html>
+<html>
 <head>
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta charset="utf-8">
 	<title>Mail Sending Demo</title>
 	<link rel="stylesheet" href="css/main.css" type="text/css"/>
+	<script type="text/javascript" src="scripts/main.js" defer></script>
 </head>
 <body>
 <div id="page">
@@ -12,7 +13,7 @@
 		<div class="image-uploader" data-file='{"cropSize": {"w": 150, "h": 100}}'>
 			<div class="upload-btn">
 				Upload Image
-				<input name="uimages[]" type="file" class="upload-image btn" multiple="multiple"></input>
+				<input name="uimages[]" type="file" class="upload-image btn" multiple="multiple">
 			</div>
 			<div class="thumbnails drop-area">
 			</div>
@@ -21,19 +22,18 @@
 		<div class="image-uploader" data-file='{"insertBefore": ".thumb.file"}'>
 			<div class="thumbnails">
 				<div class="thumb file">
-					<input name="ufiles[]" type="file" class="upload-image" multiple="multiple"></input>
+					<input name="ufiles[]" type="file" class="upload-image" multiple="multiple">
 				</div>
 			</div>
 		</div>
 		<input type="submit" class="submit" value="send" />
 	</form>
-
 	<form class="file-uploader-form" action="image-send.php" method="post" enctype="multipart/form-data">
 		<h2>File uploader</h2>
 		<div class="image-uploader" data-file='{"cropSize": {"w": 150, "h": 100}, "imageValidator": false}'>
 			<div class="upload-btn">
 				Upload File
-				<input name="ufiles2[]" type="file" class="upload-image btn" multiple="multiple"></input>
+				<input name="ufiles2[]" type="file" class="upload-image btn" multiple="multiple">
 			</div>
 			<div class="thumbnails">
 			</div>
@@ -41,6 +41,5 @@
 		<input type="submit" class="submit" value="send" />
 	</form>
 </div>
-<script type="text/javascript" src="scripts/main.js" defer></script>
 </body>
 </html>
