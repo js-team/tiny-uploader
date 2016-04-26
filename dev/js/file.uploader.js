@@ -48,7 +48,7 @@ import {} from 'jquery-formdata';
 				this.makeCallback('onInit', this);
 			}
 		}
- 
+
 		findElements() {
 			this.form = jQuery(this.options.form);
 			this.uploaderHolders = this.form.find(this.options.uploaderHolders);
@@ -184,21 +184,21 @@ import {} from 'jquery-formdata';
 		// draw thumb
 		drawThumb (obj) {
 			for (let file of obj.newFiles) {
-	 
+
 				// Supports File or Blob objects
 				if (file instanceof File || file instanceof Blob) {
 					let reader = new FileReader();
-	 
+
 					// validate type
 					if (obj.opts.validateTypes) {
 						let type = file.type;
 						let success = this.validateTypes(type, obj.opts.validateTypes);
-	 
+
 						if (!success) {
 							return this.makeCallback('onValidateError', 'type', type, obj.opts.validateTypes);
 						}
 					}
-	 
+
 					// validate format
 					if (obj.opts.validateFormats) {
 						let format = this.fileExt(file.name)[0]
@@ -208,7 +208,7 @@ import {} from 'jquery-formdata';
 							return this.makeCallback('onValidateError', 'format', format, obj.opts.validateFormats);
 						}
 					}
-	 
+
 					// file reader
 					if (file.type.match(/image.*/)) { // image type
 						let image = new Image();

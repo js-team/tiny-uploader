@@ -5,8 +5,10 @@ module.exports = {
     entry: path.resolve(__dirname, pathConfig.entryJS + '/jquery.main.js'),
     output: {
         path: path.resolve(__dirname, pathConfig.outputJS + '/'),
-        filename: 'main.js'
+        filename: 'main.js',
+        library: 'FileUploader'
     },
+
     watch: false,
     debug: true,
     devtool: 'inline-source-map',
