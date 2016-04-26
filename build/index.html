@@ -4,7 +4,7 @@
 	<meta charset="utf-8">
 	<title>Mail Sending Demo</title>
 	<link rel="stylesheet" href="css/main.css" type="text/css"/>
-	<script type="text/javascript" src="scripts/main.js" defer></script>
+	<script type="text/javascript" src="scripts/main.js"></script>
 </head>
 <body>
 <div id="page">
@@ -41,5 +41,36 @@
 		<input type="submit" class="submit" value="send" />
 	</form>
 </div>
+<script>
+	var uImageHolders = document.querySelectorAll('.image-uploader-form');
+	var uFileHolders = document.querySelectorAll('.file-uploader-form');
+
+	for (var i = 0; i < uImageHolders.length; i++) {
+		new FileUploader({
+			form: uImageHolders[i],
+			validateTypes: 'image/*',
+			validateFormats: 'png',
+			onValidateError: function(errorName, currFormat, validFormat) {
+				alert('"' + currFormat + '"' + ' is error ' + errorName + '! Must be ' + '"' + validFormat + '"');
+			},
+			onSuccess () {
+				console.log('success')
+			},
+			onError () {
+				console.log('error')
+			}
+		});
+	}
+
+	for (var i = 0; i < uFileHolders.length; i++) {
+		new FileUploader({
+			form: uFileHolders[i],
+			validateFormats: 'css,js',
+			onValidateError: function(errorName, currFormat, validFormat) {
+				alert('"' + currFormat + '"' + ' is error ' + errorName + '! Must be ' + '"' + validFormat + '"');
+			}
+		});
+	}
+</script>
 </body>
 </html>

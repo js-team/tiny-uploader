@@ -8,7 +8,6 @@ module.exports = {
         filename: 'main.js',
         library: 'FileUploader'
     },
-
     watch: false,
     debug: true,
     devtool: 'inline-source-map',
@@ -27,5 +26,9 @@ module.exports = {
             'jquery': path.resolve(__dirname, pathConfig.entryJS + '/lib/jquery-1.12.2.js'),
             'file-uploader': path.resolve(__dirname, pathConfig.entryJS + '/file.uploader.js')
         }
+    },
+    provide: {
+        $: 'jquery',
+        jQuery: 'jquery'
     }
 };
