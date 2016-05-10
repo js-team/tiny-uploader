@@ -11,6 +11,7 @@
     "webpack": "^1.12.14"
   },
   "dependencies": {
+    "jquery": "1.12.2",
     "jquery-formdata": "^0.1.3"
   }
 }

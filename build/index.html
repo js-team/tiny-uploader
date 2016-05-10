@@ -28,46 +28,23 @@
 		</div>
 		<input type="submit" class="submit" value="send" />
 	</form>
-	<form class="file-uploader-form" action="image-send.php" method="post" enctype="multipart/form-data">
-		<h2>File uploader</h2>
-		<div class="image-uploader" data-file='{"cropSize": {"w": 150, "h": 100}, "imageValidator": false}'>
-			<div class="upload-btn">
-				Upload File
-				<input name="ufiles2[]" type="file" class="upload-image btn" multiple="multiple">
-			</div>
-			<div class="thumbnails">
-			</div>
-		</div>
-		<input type="submit" class="submit" value="send" />
-	</form>
 </div>
 <script>
 	var uImageHolders = document.querySelectorAll('.image-uploader-form');
-	var uFileHolders = document.querySelectorAll('.file-uploader-form');
 
 	for (var i = 0; i < uImageHolders.length; i++) {
 		new FileUploader({
 			form: uImageHolders[i],
 			validateTypes: 'image/*',
-			validateFormats: 'png',
+			validateFormats: 'png, jpg',
 			onValidateError: function(errorName, currFormat, validFormat) {
 				alert('"' + currFormat + '"' + ' is error ' + errorName + '! Must be ' + '"' + validFormat + '"');
 			},
-			onSuccess () {
+			onSuccess (request, textStatus, jqXHR) {
 				console.log('success')
 			},
 			onError () {
 				console.log('error')
-			}
-		});
-	}
-
-	for (var i = 0; i < uFileHolders.length; i++) {
-		new FileUploader({
-			form: uFileHolders[i],
-			validateFormats: 'css,js',
-			onValidateError: function(errorName, currFormat, validFormat) {
-				alert('"' + currFormat + '"' + ' is error ' + errorName + '! Must be ' + '"' + validFormat + '"');
 			}
 		});
 	}

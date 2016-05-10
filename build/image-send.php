@@ -19,8 +19,9 @@
 		foreach ($one_file['name'] as $key => $value) {
 			$uploadfile = $uploaddir.basename($value);
 			if (move_uploaded_file($one_file['tmp_name'][$key], $uploadfile)) {
+				echo 'success uploading';
 			} else {
-			    echo 'error';
+				echo 'error uploading';
 			}
 		}
 	}

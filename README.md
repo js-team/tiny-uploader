@@ -21,21 +21,13 @@ jQuery('.image-uploader-form').each(function() {
         }
     });
 });
-
-jQuery('.file-uploader-form').each(function() {
-    new ImageUploader({
-        form: this,
-        validateFormats: 'css|js'
-    });
-});
 ```
 
 
 ##  TODO
 
 
-* почитать, как ставить конкретную версию npm пакета
-* чистить код
-* куча пробелов
-* подмодули / static
-* 
+* почитать, как ставить конкретную версию npm пакета - done
+* чистить код - done
+* куча пробелов - done
+* подмодули / static - done
