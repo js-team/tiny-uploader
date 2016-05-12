@@ -304,7 +304,7 @@ class FileUploader {
 				newThumb.file = image.file;
 
 				if (Object.is(obj.opts.thumbType, 'image')) {
-					let base64resized = canvas.toDataURL('image/' + imageFormat); // 'type, encoderOptions' (image/png, between 0 and 1 indicating image quality if the requested type is image/jpeg or image/webp)
+					let base64resized = canvas.toDataURL(`image/${imageFormat}`); // 'type, encoderOptions' (image/png, between 0 and 1 indicating image quality if the requested type is image/jpeg or image/webp)
 					elem = image;
 					image.src = base64resized;
 				}
